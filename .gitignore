@@ -86,9 +86,11 @@ ENV/
 .spyderproject
 # data files
 *.csv
+*.txt
 # raw data files
 [log].*
 # ignore all files in any directory named data
 data/
+utils_old/
 # Rope project settings
 .ropeproject

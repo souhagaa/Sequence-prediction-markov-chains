@@ -31,7 +31,6 @@ class LogParser:
         base_df.show(10)
         return base_df
 
-
     def load_dataframe(self):
         print("loading the dataframe")
         base_df = self.spark.read.format("csv").option("header", "true").load("/home/souhagaa/Bureau/test/server/UX/UX/data/interm/analytic_log.csv")

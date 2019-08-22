@@ -1,27 +1,26 @@
 from UX.extensions import celery
-from UX.utils.data_cleaning.data_cleaning import data_cleaning, \
-    preprocessing_for_markov, sampling
-from UX.utils.markov_click.markov import fitting_model
-from UX.utils.log_parsing.parser import LogParser
 from UX.config import DATA_DIR
-from UX.utils.session_identification.session_identification import \
-    execute_session_identification
+from UX.utils.log_parsing import get_log_files, parse_access_logs, \
+    parse_presentation_logs
+from UX.utils.data_cleaning import clean_parsed_logs
+from UX.utils.session_identification import session_period_identification, \
+    actions_to_sessions
+from UX.utils.markov_click import fitting_model
 import os
-import traceback
-import sys
+from pathlib import Path
 
 
 @celery.task
-def processing(filenames):
-    parsed_file_dir = str(os.path.join(DATA_DIR, 'interm'))
-    cleaned_file_dir = str(os.path.join(DATA_DIR, 'interm', 'clean'))
+def processing(input_dir):
+    parsed_file_dir = str(os.path.join(DATA_DIR, 'interm/'))
+    cleaned_file_dir = str(os.path.join(DATA_DIR, 'interm', 'clean/'))
     identified_file_dir = str(os.path.join(DATA_DIR, 'interm', 'identified/'))
     model_file_dir = str(os.path.join(DATA_DIR, 'final/'))
 
     print("*----------------------------------*")
     print("starting parsing")
     print("*----------------------------------*")
-    parsed_files = parsing(filenames, parsed_file_dir)
+    parsed_files = parsing(input_dir, parsed_file_dir)
 
     print("*----------------------------------*")
     print("moving on to cleaning")
@@ -31,7 +30,7 @@ def processing(filenames):
     print("*----------------------------------*")
     print("moving on to session identication")
     print("*----------------------------------*")
-    session_files = session_identification(cleaned_files, output_dir=identified_file_dir)
+    session_files = session_identification(cleaned_files, identified_file_dir)
 
     print("*----------------------------------*")
     print("moving on to training")
@@ -39,32 +38,36 @@ def processing(filenames):
     return training(session_files, model_file_dir)
 
 
-def parsing(filenames, output_dir):  # spark
-    parser = LogParser(4)
-    log = parser.load_log_file(filenames)
-    return parser.data_wrangling(log, output_dir)
+def parsing(input_dir, output_dir):
+    parsed_access_log = output_dir+"parsed_access_log.csv"
+    parsed_presentation_log = output_dir+"parsed_presentation_log.csv"
+
+    access_logs_filenames, presentation_logs_filenames = get_log_files(input_dir)
+    parse_access_logs(access_logs_filenames, parsed_access_log)
+    parse_presentation_logs(presentation_logs_filenames, parsed_presentation_log)
+
+    return {"access": parsed_access_log, "presentation": parsed_presentation_log}
 
 
 def cleaning(parsed_files, output_dir):
-    parsed_file_path = parsed_files["parsed_log"]
-    try:
-        df = data_cleaning(parsed_file_path)
-        preprocessing_for_markov(df)
-        interm_cleaned_files = {}
-        interm_cleaned_files["data_clean"] = "/home/souhagaa/Bureau/test/server/UX/UX/data/interm/data_clean.csv"
-        return sampling(interm_cleaned_files["data_clean"], output_dir, 30)
-    except:
-        print("something went wrong while cleaning data")
-        traceback.print_exc(file=sys.stdout)
-        return []
+    input_access = parsed_files['access']
+    input_pres = parsed_files['presentation']
+    output_pres = output_dir + "clean_presentation_log.csv"
+    output_access = output_dir + "clean_access_log.csv"
+    screen_ids = str(Path(output_dir).parent.parent) + '/final/screen_ids.json'
+    clean_parsed_logs(input_access, input_pres, output_pres, output_access, screen_ids)
+
+    return {"access": output_access, "presentation": output_pres}
 
 
 def session_identification(cleaned_files, output_dir):
-    created_files = []
-    for f in cleaned_files:
-        output_file = output_dir + 'sessions_user_{}.csv'.format(f[0])
-        created_files.append((f[0], output_file))
-        execute_session_identification(f[1], output_file)
+    input_access = cleaned_files['access']
+    input_pres = cleaned_files['presentation']
+    sessions_period_file = str(Path(output_dir).parent) + '/sessions_periods.csv'
+    print("executing session_period_identification", sessions_period_file)
+    session_period_identification(input_access, sessions_period_file)
+    output_file = output_dir + "user_{}_sessions.csv"
+    created_files = actions_to_sessions(input_pres, sessions_period_file, output_file)
     return created_files
 
 
@@ -73,10 +76,13 @@ def training(session_files, output_dir):
     training_set_path="", test_set_path="", output_model_path=""
     """
     created_files = []
+    print("session files", type(session_files), session_files)
     i = 0
     for f in session_files:
-        output_file = output_dir + "user_{}_markov_model.rds".format(f[0])
-        created_files.append((f[0], output_file))
-        fitting_model(f[1], None, output_file, i)
+        user = f.split('_')[1]
+        print("formatting", f)
+        output_file = output_dir + "user_{}_markov_model.rds".format(user)
+        created_files.append((user, output_file))
+        fitting_model(f, None, output_file, i)
         i += 1
     return created_files
