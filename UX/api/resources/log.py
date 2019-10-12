@@ -9,7 +9,6 @@ import os
 class LogResource(Resource):
     """Single object resource
     """
-    # method_decorators = [jwt_required]
 
     def post(self):
         filenames = []

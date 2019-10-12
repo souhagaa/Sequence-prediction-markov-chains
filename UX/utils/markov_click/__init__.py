@@ -7,6 +7,7 @@ import os
 import time
 from rpy2.robjects import globalenv as globalenv
 import rpy2.robjects as ro
+import pandas as pd
 
 
 # install R packages if not installed
@@ -53,66 +54,38 @@ def from_id_to_screen(id, file):
     return None
 
 
-def fitting_model(training_set_path, test_set_path, output_model_path, i):
-    print("fitting")
+def markov_order(session_file):
+    df = pd.read_csv(session_file, header=None)
+    nulls = df.loc[0, :].isnull().sum()
+    nulls
+    for i in range(1, df.shape[0]):
+        if nulls < df.loc[i, :].isnull().sum():
+            nulls = df.loc[i, :].isnull().sum()
+        print("row", i, df.loc[i, :].isnull().sum())
+    # return df.columns.tolist()[-1]+1-nulls
+    return df.columns.tolist()[-1]-nulls
+
+
+def fitting_model(training_set_path, output_model_path):
     start_time = time.time()
     r = robjects.r
+    order = markov_order(training_set_path)
     try:
         r('train_set = "{}"'.format(training_set_path))
         r('cls <- readClickstreams(file = train_set, sep=",", header=FALSE)')
     except IOError:
         print("could not open model file")
-    # r('mc <- fitMarkovChain(clickstreamList = cls, order = 1, control = list(optimizer = "quadratic"))')
     else:
         try:
-            r('''
-            png("/home/souhagaa/Bureau/test/test_log_chronos/presentation/models/myplot_{}.png", 1800, 1800)
-            myplot <- plot(mc, order = 1, digits = 2)
-            print(myplot)
-            dev.off()
-            '''.format(i))
+            print("fitting the markov model to all clickstream with order {}".format(str(order)))
+            r('mc <- fitMarkovChain(clickstreamList = cls, order = {}, control = list(optimizer = "quadratic"))'.format(order))
         except:
-            print("error in plotting")
-
-        # try:
-        #     r('clusters <- clusterClickstreams(clickstreamList = cls, order = 1, centers = 2)')
-        #     print("clustering")
-            # r('print(clusters)')
-        # except:
-            # print("could not cluster clickstreams, data is too large")
-        try:
-            print("fitting the markov model to all clickstream with order 1")
-            r('mc <- fitMarkovChain(clickstreamList = cls, order = 1, control = list(optimizer = "quadratic"))')
-        except:
-            print("fitting the markov model to all clickstream with order 0")
+            print("fitting the markov model to all clickstreams with order 0")
             r('mc <- fitMarkovChain(clickstreamList = cls, order = 0, control = list(optimizer = "quadratic"))')
-        # else:
-        #     print("fitting model to clusters")
-        #     r('fitMarkovChains(clusters, order = 1)')
-
-        # try:
-        #     r('matrix <- chiSquareTest(cls, mc)')
-        #     r('capture.output(summary(matrix), file = "/home/souhagaa/Bureau/test/test_log_chronos/presentation/models/chi_square.txt")')
-        #     # r('''cat(matrix,file="/home/souhagaa/Bureau/test/test_log_chronos/presentation/models/aaloui_chi_square.txt",sep='\n')''')
-        # except:
-        #     print("data is too large for calculating the chi square metric")
-        # r('''
-        # png("hm.png", 1800, 1800)
-        # myplot <- hmPlot(mc, order = 2, absorptionProbability = FALSE, title = NA,
-        #     lowColor = 'white', highColor = 'red', flip = FALSE)
-        # print(myplot)
-        # dev.off()
-        # ''')
-        # r('test <- readClickstreams(file = "{}" , sep = ",", header = FALSE)'.format(test_set_path))
-        # matrix = r('mcEvaluateAll(mc, cls, test, includeChiSquare = TRUE)')
-        # # chisquare_np = numpy.array(matrix)
-        # chisquare_df = pandas2ri.ri2py(matrix)
-        # pd.DataFrame(chisquare_df).to_csv("chi_square.csv")
-        # return it or save it
     finally:
         r('saveRDS(mc, "{}")'.format(output_model_path))
-        end_time = time.time()
-    return end_time-start_time
+        print('fitted in', time.time()-start_time)
+        # return order, time.time()-start_time
 
 
 def predict(pattern, model_path, screen_ids_file="/home/souhagaa/Bureau/test/server/UX/UX/data/final/screen_ids.json"):

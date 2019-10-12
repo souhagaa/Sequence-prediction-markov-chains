@@ -43,8 +43,8 @@ def parsing(input_dir, output_dir):
     parsed_presentation_log = output_dir+"parsed_presentation_log.csv"
 
     access_logs_filenames, presentation_logs_filenames = get_log_files(input_dir)
-    parse_access_logs(access_logs_filenames, parsed_access_log)
     parse_presentation_logs(presentation_logs_filenames, parsed_presentation_log)
+    parse_access_logs(access_logs_filenames, parsed_access_log)
 
     return {"access": parsed_access_log, "presentation": parsed_presentation_log}
 
@@ -72,17 +72,12 @@ def session_identification(cleaned_files, output_dir):
 
 
 def training(session_files, output_dir):
-    """
-    training_set_path="", test_set_path="", output_model_path=""
-    """
     created_files = []
     print("session files", type(session_files), session_files)
-    i = 0
     for f in session_files:
         user = f.split('_')[1]
-        print("formatting", f)
+        print(user, "sessions")
         output_file = output_dir + "user_{}_markov_model.rds".format(user)
         created_files.append((user, output_file))
-        fitting_model(f, None, output_file, i)
-        i += 1
+        fitting_model(f, output_file)
     return created_files

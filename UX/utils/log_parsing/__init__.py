@@ -1,8 +1,6 @@
 import pandas as pd
 import os
 import re
-from datetime import datetime
-import time
 import locale
 locale.setlocale(locale.LC_ALL, str('en_US.UTF-8'))
 pd.options.mode.chained_assignment = None
@@ -23,7 +21,6 @@ def get_log_files(directory_in_str="/home/souhagaa/Bureau/test/server/UX/UX/data
             if r1.search(filename):
                 str_file = str(os.path.join(directory_in_str, filename))
                 presentation_logs_filenames.append(str_file)
-
     return access_logs_filenames, presentation_logs_filenames
 
 
@@ -31,7 +28,8 @@ def parse_presentation_logs(presentation_logs_filenames,
                             output_file="/home/souhagaa/Bureau/test/server/UX/UX/data/interm/parsed_presentation_log.csv"):
     df_all = pd.DataFrame(columns=['datetime', 'username', 'screen'])
     for f in presentation_logs_filenames:
-        df = pd.read_csv(f, header=None, sep="|")
+        print('file name:', f)
+        df = pd.read_csv(f, header=None, sep="|", error_bad_lines=False)
         df = df[[0, 4, 5]]
         df.columns = ['datetime', 'username', 'usecases']
         df['username'] = df['username'].str[4:]
@@ -69,14 +67,6 @@ def parse_access_logs(access_logs_filenames,
             df['datetime'] = pd.to_datetime(df['datetime'], format='%d/%b/%Y:%H:%M:%S %z')
         except ValueError:
             df['datetime'] = pd.to_datetime(df['datetime'], infer_datetime_format=True)
-        # df['datetime'] = df['datetime'].str[:-6]
-        # '30/May/2019:00:40:21 +0200'[:-6]
-        # df['datetime'] = pd.to_datetime(df['datetime'], format='%d/%b/%Y:%H:%M:%S %z')
-        # try:
-        #     df['datetime'] = pd.to_datetime(df['datetime'], format='%d/%b/%Y:%H:%M:%S')
-        # except ValueError:
-        #     print("error while parsing date")
-        #     df['datetime'] = df['datetime'].apply(lambda x: time.strptime(x,'%d/%b/%Y:%H:%M:%S'))
         df_all = df_all.append(df)
     print("showing parsed access log", df_all.head())
     df_all.to_csv(output_file, index=False)

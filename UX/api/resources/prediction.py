@@ -1,9 +1,7 @@
 from flask import request
 from flask_restful import Resource
-# from flask_jwt_extended import jwt_required
 from UX.utils.markov_click import predict
 import os
-import json
 from UX.config import DATA_DIR
 import traceback
 import sys
@@ -12,7 +10,7 @@ import sys
 class PredictionResource(Resource):
     """Single object resource
     """
-    # method_decorators = [jwt_required]
+
     model_path = str(os.path.join(DATA_DIR, 'final/'))
 
     def post(self):
