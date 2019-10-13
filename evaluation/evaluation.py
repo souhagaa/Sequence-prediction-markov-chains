@@ -102,7 +102,6 @@ def execute_session_identification(clean_access_log='/home/souhagaa/Bureau/test/
     return created_train_files, created_test_files
 
 
-# install R packages if not installed
 def markov_order(dataset_file):
     df = pd.read_csv(dataset_file, header=None)
     nulls = df.loc[0, :].isnull().sum()
@@ -163,7 +162,6 @@ def evaluate(training_set_path, test_set_path, model_path):
     r("mc <- readRDS('{}')".format(model_path))
     error_freq = 0
     for test, training in zip(test_data, training_data):
-        # for test in test_data:
         r('startPattern <- new("Pattern", sequence = c("{}"))'.format(training[-1]))
         length_prediction = str(len(test))
         resultPattern = r("predict(mc, startPattern, dist={})".format(length_prediction))
@@ -172,7 +170,6 @@ def evaluate(training_set_path, test_set_path, model_path):
             predicted.append(i)
         number_err = sum(i != j for i, j in zip(predicted, test))
         error_freq = error_freq + (number_err/len(predicted))
-    print(error_freq / len(test_data))
     return error_freq / len(test_data)
 
 
@@ -186,9 +183,9 @@ def execute_evaluation(test_files, train_files, data_path):
         model_file = data_path + "/evaluation_data/model/user_{}_markov_model.rds".format(user)
         try:
             error_rate = evaluate(train, test, model_file)
-            if error_rate < 0.5:
-                sum_errors = sum_errors + error_rate
-                number_evaluation += 1
+            # if error_rate < 0.5:
+            sum_errors = sum_errors + error_rate
+            number_evaluation += 1
         except:
             print("error while evaluating user", user)
             error_in_evaluation += 1
